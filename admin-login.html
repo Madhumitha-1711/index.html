@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Login - Tuition Fee Tracker</title>
+<script src="storage-sync.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+/* ===== Body ===== */
+body { 
+  margin:0; 
+  font-family:'Segoe UI', sans-serif; 
+  height:100vh; 
+  display:flex; 
+  justify-content:center; 
+  align-items:center; 
+  background: #f5f6fa;
+}
+/* ===== Form Box ===== */
+.form-box { 
+  background: rgba(255,255,255,0.95); 
+  padding:40px; 
+  border-radius:15px; 
+  width:350px; 
+  text-align:center; 
+  box-shadow:0 6px 25px rgba(0,0,0,0.1); 
+}
+/* ===== Heading ===== */
+.form-box h2 { 
+  margin-bottom:25px; 
+  font-size:24px; 
+  font-weight:bold; 
+  color:#2d3436; 
+}
+/* ===== Admin Icon ===== */
+.admin-icon {
+  font-size: 48px;
+  color: #4e3db7; 
+  margin-bottom: 20px;
+}
+/* ===== Input Fields ===== */
+.form-box input { 
+  width:100%; 
+  padding:12px; 
+  margin:10px 0; 
+  border:none; 
+  border-radius:12px; 
+  font-size:15px; 
+  background:#eee; 
+  box-sizing: border-box;
+}
+/* ===== Password Wrapper ===== */
+.password-wrapper {
+  position: relative;
+  width: 100%;
+}
+.password-wrapper input {
+  width: 100%;
+  padding-right: 40px; /* space for eye icon */
+}
+.password-wrapper .toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  font-size: 12px;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #555;
+}
+.password-wrapper .toggle-password:hover {
+  color: #4e73df;
+}
+/* ===== Buttons ===== */
+.form-box button { 
+  width:100%; 
+  padding:12px; 
+  margin-top:15px; 
+  border:none; 
+  background:#5a4fcf; 
+  color:white; 
+  border-radius:12px; 
+  cursor:pointer; 
+  font-weight:bold; 
+  font-size:16px;
+  transition: background 0.3s;
+}
+.form-box button:hover {
+  background:#3b3aa5; 
+}
+/* ===== Error Messages ===== */
+.error{ 
+  color:red; 
+  font-size:14px; 
+  margin-top:10px; 
+}
+/* ===== Back Link ===== */
+.back-link {
+  margin-top: 20px;
+}
+.back-link a {
+  color: #5a4fcf; 
+  text-decoration: none;
+  font-weight: bold;
+}
+.back-link a:hover {
+  text-decoration: underline;
+}
+/* ===== Security Note ===== */
+.security-note {
+  font-size: 12px;
+  color: #666;
+  margin-top: 15px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+</style>
+</head>
+<body>
+<div class="form-box">
+  <div class="admin-icon">🔐</div>
+  <h2>Admin Login</h2>
+  <form id="admin-login-form">
+    <input type="text" id="admin-username" placeholder="Admin Username" required>
+
+    <!-- Password with toggle -->
+    <div class="password-wrapper">
+      <input type="password" id="admin-password" placeholder="Admin Password" required>
+      <i class="fa-solid fa-eye toggle-password" onclick="togglePassword('admin-password', this)"></i>
+    </div>
+
+    <button type="submit">Login as Admin</button>
+    <div class="error" id="error-msg"></div>
+  </form>
+
+  <div class="back-link">
+    <a href="login.html">← Back to Student Login</a>
+  </div>
+</div>
+
+<script>
+// === Toggle Password Function ===
+function togglePassword(inputId, icon) {
+  const input = document.getElementById(inputId);
+  if (input.type === "password") {
+    input.type = "text";
+    icon.classList.remove("fa-eye");
+    icon.classList.add("fa-eye-slash");
+  } else {
+    input.type = "password";
+    icon.classList.remove("fa-eye-slash");
+    icon.classList.add("fa-eye");
+  }
+}
+
+// Initialize admin credentials if not already set
+function initializeAdminCredentials() {
+  if (!localStorage.getItem('adminCredentials')) {
+    const defaultAdmin = {
+      username: 'admin',
+      password: 'admin123', // NOTE: Replace with hashed in production
+      role: 'admin',
+      createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('adminCredentials', JSON.stringify(defaultAdmin));
+  }
+}
+
+const adminLoginForm = document.getElementById('admin-login-form');
+const errorMsg = document.getElementById('error-msg');
+
+// Initialize credentials
+initializeAdminCredentials();
+
+adminLoginForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const username = document.getElementById('admin-username').value.trim();
+  const password = document.getElementById('admin-password').value.trim();
+  
+  errorMsg.textContent = '';
+
+  if (!username || !password) {
+    errorMsg.textContent = "Please enter both username and password!";
+    return;
+  }
+
+  const adminCredentials = JSON.parse(localStorage.getItem('adminCredentials'));
+  
+  if (!adminCredentials) {
+    errorMsg.textContent = "Admin credentials not found. Please contact system administrator.";
+    return;
+  }
+
+  if (username === adminCredentials.username && password === adminCredentials.password) {
+    const adminSession = {
+      username: adminCredentials.username,
+      role: 'admin',
+      loginTime: new Date().toISOString(),
+      sessionId: 'ADMIN_' + Math.random().toString(36).substr(2, 9)
+    };
+    
+    localStorage.setItem('currentAdmin', JSON.stringify(adminSession));
+    alert("Admin login successful!");
+    window.location.href = "atft.html";
+  } else {
+    errorMsg.textContent = "Invalid username or password!";
+    
+    let failedAttempts = parseInt(localStorage.getItem('adminFailedAttempts') || '0');
+    failedAttempts++;
+    localStorage.setItem('adminFailedAttempts', failedAttempts.toString());
+    
+    if (failedAttempts >= 3) {
+      errorMsg.textContent = "Too many failed attempts. Please try again later.";
+    }
+  }
+});
+
+// Clear failed attempts on page load reset every 15 minutes
+document.addEventListener('DOMContentLoaded', function() {
+  const lastReset = localStorage.getItem('lastFailedAttemptsReset');
+  const now = new Date().getTime();
+  
+  if (!lastReset || (now - parseInt(lastReset)) > 15 * 60 * 1000) {
+    localStorage.setItem('adminFailedAttempts', '0');
+    localStorage.setItem('lastFailedAttemptsReset', now.toString());
+  }
+});
+</script>
+</body>
+</html>

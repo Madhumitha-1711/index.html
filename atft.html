@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuition Fee Tracker - Admin Dashboard</title>
+
+<!-- include the sync file so master <-> legacy keys remain consistent across pages -->
+<script src="storage-sync.js"></script>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+  /* ===== Global Styles ===== */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f6fa; /* light background */
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: #4e3db7;
+  color: white;
+  padding: 20px 0;
+  text-align: center;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  position: relative;
+}
+header h1 { margin: 0; font-size: 28px; letter-spacing: 1px; }
+.admin-info { position: absolute; top: 15px; left: 20px; font-size: 14px; color: #f5f6fa; }
+.logout-btn { position: absolute; top: 20px; right: 20px; padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+.logout-btn:hover { background: #c0392b; }
+footer { background: #e1e0f7; color: #4e3db7; text-align: center; padding: 15px 0; box-shadow: 0 -3px 5px rgba(0,0,0,0.05); }
+nav { margin: 15px 0; text-align: center; }
+nav button { background: #fff; color: #5a4fcf; border: none; padding: 10px 22px; margin: 0 5px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+nav button:hover { background: #5a4fcf; color: #fff; transform: scale(1.05); }
+main { max-width: 1200px; margin: 30px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+.module { display: none; }
+.module.active { display: block; }
+.dashboard-cards { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 25px; }
+.card { background: linear-gradient(135deg, #6b5dd3, #4e73df); flex: 1; min-width: 180px; padding: 25px; font-size: 20px; border-radius: 12px; text-align: center; color: white; box-shadow: 0 5px 15px rgba(0,0,0,0.15); transition: transform 0.3s ease; }
+.card:hover { transform: translateY(-5px); }
+table { width: 100%; border-collapse: collapse; margin: 15px 0; border-radius: 10px; overflow: hidden; }
+th, td { border-bottom: 1px solid #ddd; padding: 12px 10px; text-align: left; }
+th { background: #5a4fcf; color: white; }
+tr:nth-child(even){ background: #f1f3f6; }
+tr:hover{ background: #e2e4f0; }
+form input[type="text"], form input[type="number"], form select { padding: 10px; margin-right: 8px; border: 1px solid #bbb; border-radius: 8px; outline: none; transition: all 0.2s ease; }
+form input:focus, form select:focus { border-color: #5a4fcf; }
+form button { background: #5a4fcf; color: white; border: none; padding: 10px 18px; border-radius: 25px; cursor: pointer; transition: all 0.3s ease; }
+form button:hover { background: #3b5ac3; transform: scale(1.05); }
+#fee-structure-view { margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+.status-approved { color: green; font-weight: bold; }
+.status-rejected { color: red; font-weight: bold; }
+.status-pending { color: orange; font-weight: bold; }
+.actions button { margin-right: 5px; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-size: 14px; }
+.actions button:hover{ opacity:0.85; }
+.actions button.edit{ background:#6b5dd3; color:white; }
+.actions button.remove{ background:#e74a3b; color:white; }
+.actions button.approve{ background:#4e73df; color:white; }
+.actions button.reject{ background:#f6c23e; color:white; }
+.access-denied { text-align:center; padding:50px; color:#e74c3c; }
+@media(max-width:768px){
+  .dashboard-cards{ flex-direction:column; gap:15px; }
+  form input, form button{ margin-bottom:10px; width:100%; }
+  .admin-info{ position:static; text-align:center; margin-bottom:10px; }
+  nav button{ width:100%; margin:5px 0; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="admin-info" id="adminInfo">
+    <i class="fas fa-user-shield"></i> <span id="adminUsername">Admin</span>
+  </div>
+  <button class="logout-btn" onclick="logout()">Logout</button>
+  <h1>Tuition Fee Tracker</h1>
+  <nav>
+    <button onclick="showModule('overview')"><i class="fas fa-chart-pie"></i> Overview</button>
+    <button onclick="showModule('students')"><i class="fas fa-user-graduate"></i> Students</button>
+    <button onclick="showModule('payments')"><i class="fas fa-money-bill-wave"></i> Payments</button>
+    <button onclick="showModule('proofs')"><i class="fas fa-file-upload"></i> Proofs</button>
+    <button onclick="showModule('fee-structure')"><i class="fas fa-coins"></i> Fee Structure</button>
+  </nav>
+</header>
+
+<main>
+  <div id="access-denied" class="access-denied" style="display:none;">
+    <h2><i class="fas fa-lock"></i> Access Denied</h2>
+    <p>You must be logged in as an administrator to access this page.</p>
+    <a href="admin-login.html" style="color: #4e73df; font-weight: bold;">Go to Admin Login</a>
+  </div>
+
+  <div id="dashboard-content">
+    <!-- Overview -->
+    <section id="overview" class="module active">
+      <h2>Overview</h2>
+      <div class="dashboard-cards">
+        <div class="card"><span id="total-students">0</span><br>Total Students</div>
+        <div class="card"><span id="collected-fees">₹0</span><br>Collected Fees</div>
+        <div class="card"><span id="pending-dues">₹0</span><br>Pending Dues</div>
+      </div>
+      <h3>Class-wise Student Count</h3>
+      <div id="class-wise-students"></div>
+      <h3>Month-wise Payment Dues</h3>
+      <div id="month-wise-dues"></div>
+      <h3>Month-wise Collected Fees</h3>
+      <div id="month-wise-collected"></div>
+    </section>
+
+    <!-- Students -->
+    <section id="students" class="module">
+      <h2>Manage Students</h2>
+      <form id="student-form" autocomplete="off">
+        <input type="hidden" id="student-id">
+        <input type="text" id="student-name" placeholder="Student Name" required>
+        <input type="text" id="student-class" placeholder="Class" required>
+        <input type="text" id="student-email" placeholder="Email" required>
+        <input type="text" id="student-phone" placeholder="Phone Number" required>
+        <input type="text" id="student-address" placeholder="Address" required>
+        <button type="submit" id="student-submit-btn">Add Student</button>
+        <button type="button" id="student-cancel-btn" style="display:none;" onclick="resetStudentForm()">Cancel</button>
+      </form>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Class</th><th>Email</th><th>Phone</th><th>Address</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="student-list"></tbody>
+      </table>
+    </section>
+
+    <!-- Payments -->
+    <section id="payments" class="module">
+      <h2>Payment Status</h2>
+      <label>Filter by Name: <input type="text" id="filter-name" placeholder="Student Name"></label>
+      <label>Filter by Class: <input type="text" id="filter-class" placeholder="Class"></label>
+      <button onclick="filterPayments()">Filter</button>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Class</th><th>Month</th><th>Status</th><th>Amount Paid</th></tr>
+        </thead>
+        <tbody id="payment-list"></tbody>
+      </table>
+    </section>
+
+    <!-- Proofs -->
+    <section id="proofs" class="module">
+      <h2>Submitted Proofs</h2>
+      <table>
+        <thead>
+          <tr><th>Student</th><th>Proof</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="proof-list"></tbody>
+      </table>
+    </section>
+
+    <!-- Fee Structure -->
+    <section id="fee-structure" class="module">
+      <h2>Fee Structure</h2>
+      <form id="fee-structure-manual-form" style="margin-bottom:10px;">
+        <input type="text" id="fee-class" placeholder="Class" required>
+        <input type="number" id="fee-amount" placeholder="Amount" min="0" required>
+        <button type="submit">Add</button>
+      </form>
+      <h3>Current Fee Structure</h3>
+      <div id="fee-structure-view"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+  /******************************************
+   * Core storage + structure initialization
+   * (these run regardless of auth so data persists)
+   ******************************************/
+  const MASTER_KEY = 'paymentsJSON'; // canonical single master key
+
+  // In-memory arrays
+  let students = [];
+  let payments = [];
+  let proofs = [];
+  let feeStructure = [];
+
+  // Load master from localStorage (robust parsing, fallback to legacy keys)
+  function loadMaster(){
+    let masterRaw = localStorage.getItem(MASTER_KEY);
+    let master = null;
+    try {
+      master = masterRaw ? JSON.parse(masterRaw) : null;
+    } catch(e) {
+      master = null;
+    }
+
+    if(master && typeof master === 'object'){
+      students = Array.isArray(master.students) ? master.students.slice() : [];
+      payments = Array.isArray(master.payments) ? master.payments.slice() : [];
+      proofs = Array.isArray(master.proofs) ? master.proofs.slice() : [];
+      feeStructure = Array.isArray(master.feeStructure) ? master.feeStructure.slice() : [];
+    } else {
+      // try legacy keys (backwards compatibility)
+      try {
+        const legacyStudents = JSON.parse(localStorage.getItem('students') || '[]');
+        const legacyPayments = JSON.parse(localStorage.getItem('payments') || '[]');
+        students = Array.isArray(legacyStudents) ? legacyStudents.slice() : [];
+        payments = Array.isArray(legacyPayments) ? legacyPayments.slice() : [];
+      } catch(e) {
+        students = []; payments = [];
+      }
+      proofs = []; feeStructure = [];
+    }
+
+    // ensure master and legacy are consistent on disk
+    localStorage.setItem(MASTER_KEY, JSON.stringify({ students, payments, proofs, feeStructure }, null, 2));
+    localStorage.setItem('students', JSON.stringify(students, null, 2));
+    localStorage.setItem('payments', JSON.stringify(payments, null, 2));
+  }
+
+  // Save master into localStorage (single source of truth)
+  function saveMaster(){
+    const master = {
+      students: students.slice(),
+      payments: payments.slice(),
+      proofs: proofs.slice(),
+      feeStructure: feeStructure.slice()
+    };
+    localStorage.setItem(MASTER_KEY, JSON.stringify(master, null, 2));
+    // keep legacy keys in sync for other pages that might use them
+    localStorage.setItem('students', JSON.stringify(students, null, 2));
+    localStorage.setItem('payments', JSON.stringify(payments, null, 2));
+    // If storage-sync.js listens to specific events, it will broadcast changes across tabs
+    if(window.TFT && typeof window.TFT.loadFromJSON === 'function') window.TFT.loadFromJSON();
+  }
+
+  // small utility to get upcoming months
+  function nextNMonthsISO(n){
+    const months = [];
+    const now = new Date();
+    for(let i=1; i<=n; i++){
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const mm = String(d.getMonth() + 1).padStart(2,'0');
+      months.push(`${d.getFullYear()}-${mm}`);
+    }
+    return months;
+  }
+
+  function generateID(){ return "S"+Math.floor(Math.random()*100000); }
+
+  function getFeeForClass(cls){
+    if(!Array.isArray(feeStructure)) return 3000;
+    const f = feeStructure.find(x => String(x.class).trim().toLowerCase() === String(cls).trim().toLowerCase());
+    return f ? Number(f.amount) || 3000 : 3000;
+  }
+
+  /******************************************
+   * Authentication check (no longer blocks script)
+   * It only toggles UI — data & functions remain available.
+   ******************************************/
+  function checkAdminAuth() {
+    const currentAdmin = (() => {
+      try { return JSON.parse(localStorage.getItem('currentAdmin')); } catch(e){ return null; }
+    })();
+
+    if (!currentAdmin || currentAdmin.role !== 'admin') {
+      document.getElementById('dashboard-content').style.display = 'none';
+      document.getElementById('access-denied').style.display = 'block';
+      document.getElementById('adminUsername').textContent = 'Not logged in';
+      return false;
+    }
+
+    // Update admin info display
+    document.getElementById('adminUsername').textContent = currentAdmin.username;
+    document.getElementById('dashboard-content').style.display = '';
+    document.getElementById('access-denied').style.display = 'none';
+    return true;
+  }
+
+  // Logout (global, only removes currentAdmin — doesn't touch data)
+  function logout(){
+    if(confirm('Are you sure you want to logout?')){
+      localStorage.removeItem('currentAdmin');
+      // keep all data intact in MASTER_KEY so when admin logs in again nothing is lost
+      window.location.href = "admin-login.html";
+    }
+  }
+  window.logout = logout; // ensure the button's onclick finds it
+
+  /******************************************
+   * UI functions, CRUD and rendering
+   ******************************************/
+  function showModule(id){
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    const el = document.getElementById(id);
+    if(el) el.classList.add('active');
+    if(id==='students') renderStudents();
+    if(id==='payments') renderPayments();
+    if(id==='proofs') renderProofs();
+    if(id==='fee-structure') renderFeeStructure();
+    if(id==='overview') renderOverview();
+  }
+
+  // Students Management
+  document.getElementById('student-form').onsubmit = function(e){
+    e.preventDefault();
+    const idField = document.getElementById('student-id').value;
+    const student = {
+      id: idField || generateID(),
+      name:document.getElementById('student-name').value,
+      class:document.getElementById('student-class').value,
+      email:document.getElementById('student-email').value,
+      phone:document.getElementById('student-phone').value,
+      address:document.getElementById('student-address').value
+    };
+    if(idField){
+      const idx = students.findIndex(s => s.id === idField);
+      if(idx !== -1) students[idx] = student;
+    } else {
+      students.push(student);
+      // create payments for next 3 months (default behavior)
+      const months = nextNMonthsISO(3);
+      const feeForClass = getFeeForClass(student.class);
+      months.forEach(month => {
+        payments.push({studentId:student.id, month, status:"unpaid", amount:0, totalFee: feeForClass});
+      });
+    }
+    resetStudentForm();
+    renderStudents();
+    renderPayments();
+    renderOverview();
+    saveMaster();
+  }
+
+  function renderStudents(){
+    const tbody = document.getElementById('student-list'); tbody.innerHTML = "";
+    students.forEach(s => {
+      tbody.innerHTML += `<tr>
+        <td>${s.name}</td><td>${s.class}</td><td>${s.email||''}</td><td>${s.phone||''}</td><td>${s.address||''}</td>
+        <td class="actions">
+          <button class="edit" onclick="editStudent('${s.id}')"><i class="fas fa-edit"></i></button>
+          <button class="remove" onclick="removeStudent('${s.id}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  function editStudent(id){
+    const s = students.find(s => s.id === id);
+    if(!s) return;
+    document.getElementById('student-id').value=s.id;
+    document.getElementById('student-name').value=s.name;
+    document.getElementById('student-class').value=s.class;
+    document.getElementById('student-email').value=s.email||'';
+    document.getElementById('student-phone').value=s.phone||'';
+    document.getElementById('student-address').value=s.address||'';
+    document.getElementById('student-submit-btn').textContent="Update Student";
+    document.getElementById('student-cancel-btn').style.display="";
+  }
+
+  function resetStudentForm(){
+    document.getElementById('student-form').reset();
+    document.getElementById('student-id').value="";
+    document.getElementById('student-submit-btn').textContent="Add Student";
+    document.getElementById('student-cancel-btn').style.display="none";
+  }
+
+  function removeStudent(id){
+    if(!confirm('Remove student and all related payments/proofs?')) return;
+    students = students.filter(s => s.id !== id);
+    payments = payments.filter(p => p.studentId !== id);
+    proofs = proofs.filter(p => p.studentId !== id);
+    renderStudents();
+    renderPayments();
+    renderProofs();
+    renderOverview();
+    saveMaster();
+  }
+
+  // Payments
+  function renderPayments(){
+    const tbody = document.getElementById('payment-list'); tbody.innerHTML = "";
+    payments.forEach(p => {
+      const s = students.find(st => st.id === p.studentId);
+      if(!s) return;
+      tbody.innerHTML += `<tr>
+        <td>${s.name}</td><td>${s.class}</td><td>${p.month}</td>
+        <td>${(p.status || '').charAt(0).toUpperCase() + (p.status || '').slice(1)}</td>
+        <td><input type="number" min="0" value="${p.amount || 0}" onchange="updatePaymentAmount('${p.studentId}', '${p.month}', this.value)"></td>
+      </tr>`;
+    });
+  }
+
+  function updatePaymentAmount(studentId, month, amt){
+    let p = payments.find(p => p.studentId === studentId && p.month === month);
+    if(p){ p.amount = parseFloat(amt) || 0; saveMaster(); }
+    renderOverview();
+  }
+
+  function filterPayments(){
+    const cls = document.getElementById('filter-class').value.trim().toLowerCase();
+    const nameFilter = document.getElementById('filter-name').value.trim().toLowerCase();
+    const tbody = document.getElementById('payment-list');
+    tbody.innerHTML = "";
+    payments.forEach(p => {
+      const s = students.find(st => st.id === p.studentId);
+      if(!s) return;
+      if(cls && s.class.toLowerCase() !== cls) return;
+      if(nameFilter && !s.name.toLowerCase().includes(nameFilter)) return;
+      tbody.innerHTML += `<tr>
+        <td>${s.name}</td>
+        <td>${s.class}</td>
+        <td>${p.month}</td>
+        <td>${(p.status || '').charAt(0).toUpperCase() + (p.status || '').slice(1)}</td>
+        <td>₹${p.amount || 0}</td>
+      </tr>`;
+    });
+  }
+
+  function renderProofs(){
+    const tbody = document.getElementById('proof-list');
+    if(proofs.length === 0){
+      tbody.innerHTML = '<tr><td colspan="5"><i>No proofs submitted yet</i></td></tr>';
+      return;
+    }
+    let html = '';
+    proofs.forEach(p => {
+      const s = students.find(st => st.id === p.studentId);
+      if(!s) return;
+      let proofPreview = '';
+      if(p.url && p.url.startsWith('data:image/')) {
+        proofPreview = `<img src="${p.url}" alt="Proof Image" style="max-width:100px; max-height:60px; border-radius:5px;">`;
+      } else if(p.url && p.url.startsWith('data:application/pdf')) {
+        proofPreview = `<a href="${p.url}" target="_blank" style="font-weight:bold; color:#4e73df;">View PDF</a>`;
+      } else if(p.url) {
+        proofPreview = `<a href="${p.url}" target="_blank" style="font-weight:bold; color:#4e73df;">View File</a>`;
+      } else {
+        proofPreview = '<i>No file</i>';
+      }
+      html += `<tr>
+        <td>${s.name}</td>
+        <td>${proofPreview}</td>
+        <td>${new Date(p.date).toLocaleString()}</td>
+        <td class="status-${(p.status||'pending').toLowerCase()}">${p.status || 'pending'}</td>
+        <td class="actions">
+          <button class="approve" onclick="updateProofStatus('${p.studentId}', '${p.date}', 'Approved')"><i class="fas fa-check"></i></button>
+          <button class="reject" onclick="updateProofStatus('${p.studentId}', '${p.date}', 'Rejected')"><i class="fas fa-times"></i></button>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function updateProofStatus(studentId, date, status){
+    let pf = proofs.find(p => p.studentId === studentId && p.date === date);
+    if(pf){
+      pf.status = status;
+      // If rejected, set corresponding payment status to 'unpaid'
+      if(status.toLowerCase() === 'rejected'){
+        const payment = payments.find(p => p.studentId === studentId && p.month === (pf.month || null));
+        if(payment){
+          payment.status = 'unpaid';
+          payment.amount = 0; // reset amount if desired
+        }
+      } else if(status.toLowerCase() === 'approved'){
+        const payment = payments.find(p => p.studentId === studentId && p.month === (pf.month || null));
+        if(payment){
+          payment.status = 'paid'; // or some desired behavior
+        }
+      }
+      saveMaster();
+    }
+    renderProofs();
+    renderPayments();
+  }
+
+  // Fee Structure
+  document.getElementById('fee-structure-manual-form').onsubmit = function(e){
+    e.preventDefault();
+    const cls = document.getElementById('fee-class').value.trim();
+    const amt = parseFloat(document.getElementById('fee-amount').value);
+    if(!cls || isNaN(amt)) return;
+    const existingIndex = feeStructure.findIndex(f => String(f.class).trim().toLowerCase() === String(cls).trim().toLowerCase());
+    if(existingIndex >= 0){
+      feeStructure[existingIndex].amount = amt;
+    } else {
+      feeStructure.push({class: cls, amount: amt});
+    }
+    renderFeeStructure();
+    this.reset();
+    saveMaster();
+  }
+
+  function renderFeeStructure(){
+    const el = document.getElementById('fee-structure-view');
+    if(feeStructure.length === 0){ el.innerHTML = "<i>No fee structure added.</i>"; return; }
+    el.innerHTML = feeStructure.map((f,i) => 
+      `${f.class} : ₹${f.amount} <button onclick="removeFee(${i})" style="color:red;background:none;border:none;cursor:pointer;"><i class="fas fa-trash"></i></button>`
+    ).join("<br>");
+  }
+
+  function removeFee(idx){
+    feeStructure.splice(idx,1);
+    renderFeeStructure();
+    saveMaster();
+  }
+
+  // Overview
+  function renderOverview(){
+    document.getElementById('total-students').textContent = students.length;
+    let collected = 0, pending = 0;
+    payments.forEach(p => {
+      const studentClass = students.find(s => s.id === p.studentId)?.class;
+      let fee = feeStructure.find(f => f.class === studentClass)?.amount || 3000;
+      const paidAmount = p.amount || 0;
+      collected += paidAmount; 
+      if(p.status !== "paid") pending += (fee - paidAmount);
+    });
+    document.getElementById('collected-fees').textContent = "₹" + collected;
+    document.getElementById('pending-dues').textContent = "₹" + Math.max(0, pending);
+
+    // Class-wise
+    const classCount = {};
+    students.forEach(s => classCount[s.class] = (classCount[s.class] || 0)+1);
+    document.getElementById('class-wise-students').innerHTML = Object.keys(classCount).length ? 
+      Object.keys(classCount).map(cls => `${cls}: ${classCount[cls]} students`).join("<br>") : '<i>No students added</i>';
+
+    // Month-wise dues and collected
+    const monthDues = {}, monthCollected = {};
+    payments.forEach(p => {
+      const studentClass = students.find(s => s.id === p.studentId)?.class;
+      const fee = feeStructure.find(f => f.class === studentClass)?.amount || 3000;
+      const paidAmount = p.amount || 0;
+      monthDues[p.month] = (monthDues[p.month] || 0)+(fee-paidAmount);
+      monthCollected[p.month] = (monthCollected[p.month] || 0)+paidAmount;
+    });
+    document.getElementById('month-wise-dues').innerHTML = Object.keys(monthDues).length ? 
+      Object.keys(monthDues).map(m => `${m}: ₹${Math.max(0, monthDues[m])}`).join("<br>") : '<i>No payment data</i>';
+    document.getElementById('month-wise-collected').innerHTML = Object.keys(monthCollected).length ? 
+      Object.keys(monthCollected).map(m => `${m}: ₹${monthCollected[m]}`).join("<br>") : '<i>No payment data</i>';
+  }
+
+  // expose some functions for inline use
+  window.editStudent = editStudent;
+  window.removeStudent = removeStudent;
+  window.updatePaymentAmount = updatePaymentAmount;
+  window.updateProofStatus = updateProofStatus;
+  window.removeFee = removeFee;
+  window.filterPayments = filterPayments;
+  window.showModule = showModule;
+
+  /******************************************
+   * Initialization
+   *  - load master data (always)
+   *  - apply auth UI state (show/hide)
+   *  - render the UI for whichever module is active
+   ******************************************/
+  loadMaster();          // ALWAYS load stored data
+  checkAdminAuth();      // just toggles UI visibility based on currentAdmin
+  renderStudents();
+  renderPayments();
+  renderProofs();
+  renderOverview();
+  renderFeeStructure();
+
+  // Keep in sync with other tabs/windows
+  window.addEventListener('storage', (e) => {
+    if(e.key === MASTER_KEY || e.key === 'students' || e.key === 'payments'){
+      loadMaster();
+      renderStudents();
+      renderPayments();
+      renderProofs();
+      renderOverview();
+      renderFeeStructure();
+    }
+  });
+
+</script>
+
+</body>
+</html>

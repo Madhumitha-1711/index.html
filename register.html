@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Student Registration - Tuition Fee Tracker</title>
+<script src="storage-sync.js"></script>
+
+<!-- Font Awesome (for eye icons) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+ /* ===== Body ===== */
+body { 
+  margin: 0; 
+  font-family: 'Segoe UI', sans-serif; 
+  height: 100vh; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  background: #f5f6fa;
+}
+/* ===== Form Box ===== */
+.form-box { 
+  background: rgba(255,255,255,0.95); 
+  padding: 40px; 
+  border-radius: 15px; 
+  width: 380px; 
+  text-align: center; 
+  box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.form-box:hover { 
+  transform: translateY(-3px); 
+  box-shadow: 0 15px 40px rgba(0,0,0,0.18); 
+}
+/* ===== Heading ===== */
+.form-box h2 { 
+  margin-bottom: 25px; 
+  font-size: 22px; 
+  font-weight: bold; 
+  color: #4e3db7;
+}
+/* ===== Input Fields & Selects ===== */
+.form-box input, .form-box select { 
+  width: 100%; 
+  padding: 12px; 
+  margin: 10px 0; 
+  border: none; 
+  border-radius: 12px; 
+  font-size: 15px; 
+  background: #eee; 
+  box-sizing: border-box; 
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+.form-box input:focus, .form-box select:focus { 
+  outline: none; 
+  border: 1px solid #4e73df; 
+  box-shadow: 0 0 5px rgba(78,115,223,0.3);
+}
+/* ===== Submit Button ===== */
+.form-box button { 
+  width: 100%; 
+  padding: 12px; 
+  margin-top: 15px; 
+  border: none; 
+  background: linear-gradient(45deg,#6b5dd3,#4e73df);
+  color: white; 
+  border-radius: 12px; 
+  cursor: pointer; 
+  font-weight: bold; 
+  transition: all 0.3s ease;
+}
+.form-box button:hover { 
+  background: linear-gradient(45deg,#4e73df,#6b5dd3); 
+  transform: translateY(-2px);
+}
+/* ===== Error Messages ===== */
+.error {
+  color: red; 
+  font-size: 14px; 
+  margin-top: 10px; 
+}
+/* ===== Links ===== */
+.links {
+  margin-top: 15px; 
+}
+.links a {
+  color: #6b5dd3;
+  font-weight: bold; 
+  text-decoration: none; 
+  transition: color 0.3s ease;
+}
+.links a:hover {
+  color: #4e3db7;
+  text-decoration: underline; 
+}
+/* ===== Password Toggle ===== */
+.password-wrapper {
+  position: relative;
+  width: 100%;
+}
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: #555;
+}
+.toggle-password:hover {
+  color: #4e73df;
+}
+</style>
+</head>
+<body>
+<div class="form-box">
+  <h2>Student Registration</h2>
+  <form id="register-form" autocomplete="off" novalidate>
+    <input type="text" id="name" placeholder="Full Name" required pattern="^[A-Za-z\s]+$" title="Only letters and spaces allowed" />
+    <input type="text" id="class" placeholder="Class" required pattern="^[0-9A-Za-z\s]+$" title="Alphanumeric class allowed" />
+    <input type="email" id="email" placeholder="Email address" required />
+
+    <!-- Password field with toggle -->
+    <div class="password-wrapper">
+      <input type="password" id="password" placeholder="Password" required minlength="6" />
+      <i class="fa-solid fa-eye toggle-password" onclick="togglePassword('password', this)"></i>
+    </div>
+
+    <!-- Confirm password field with toggle -->
+    <div class="password-wrapper">
+      <input type="password" id="confirm-password" placeholder="Confirm Password" required minlength="6" />
+      <i class="fa-solid fa-eye toggle-password" onclick="togglePassword('confirm-password', this)"></i>
+    </div>
+
+    <button type="submit">Register</button>
+    <div class="error" id="error-msg"></div>
+  </form>
+  <div class="links">
+    <p>Already have an account? <a href="login.html">Login here</a></p>
+  </div>
+</div>
+
+<script>
+const registerForm = document.getElementById('register-form');
+const errorMsg = document.getElementById('error-msg');
+const MASTER_KEY = 'paymentsJSON';
+
+function loadMaster(){
+  try {
+    const raw = localStorage.getItem(MASTER_KEY);
+    return raw ? JSON.parse(raw) : { students: [], payments: [], proofs: [], feeStructure: [] };
+  } catch (e) {
+    return { students: [], payments: [], proofs: [], feeStructure: [] };
+  }
+}
+
+function saveMaster(master){
+  localStorage.setItem(MASTER_KEY, JSON.stringify(master, null, 2));
+  localStorage.setItem('students', JSON.stringify(master.students || [], null, 2));
+  localStorage.setItem('payments', JSON.stringify(master.payments || [], null, 2));
+}
+
+function nextNMonthsISO(n){
+  const months = [];
+  const now = new Date();
+  for(let i=1;i<=n;i++){
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const mm = String(d.getMonth() + 1).padStart(2,'0');
+    months.push(`${d.getFullYear()}-${mm}`);
+  }
+  return months;
+}
+
+function getFeeForClass(master, cls) {
+  if(!master || !Array.isArray(master.feeStructure)) return 3000;
+  const f = master.feeStructure.find(x => String(x.class).trim().toLowerCase() === String(cls).trim().toLowerCase());
+  return f ? Number(f.amount) || 3000 : 3000;
+}
+
+// Password toggle function
+function togglePassword(fieldId, el) {
+  const input = document.getElementById(fieldId);
+  if (input.type === "password") {
+    input.type = "text";
+    el.classList.remove("fa-eye");
+    el.classList.add("fa-eye-slash");
+  } else {
+    input.type = "password";
+    el.classList.remove("fa-eye-slash");
+    el.classList.add("fa-eye");
+  }
+}
+
+registerForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  if(!registerForm.checkValidity()){
+    errorMsg.textContent = 'Please fill out the form correctly.';
+    return;
+  }
+
+  const name = document.getElementById('name').value.trim();
+  const studentClass = document.getElementById('class').value.trim();
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  const confirmPassword = document.getElementById('confirm-password').value;
+
+  errorMsg.textContent = '';
+
+  if(password !== confirmPassword) {
+    errorMsg.textContent = 'Passwords do not match.';
+    return;
+  }
+
+  const master = loadMaster();
+  const allStudents = Array.isArray(master.students) ? master.students : [];
+
+  const legacyStudents = (() => {
+    try { return JSON.parse(localStorage.getItem('students') || '[]'); } catch(e){ return []; }
+  })();
+
+  const emailExists = allStudents.find(s => s.email === email) || legacyStudents.find(s => s.email === email);
+
+  if(emailExists) {
+    errorMsg.textContent = 'Email is already registered.';
+    return;
+  }
+
+  const newStudent = {
+    id: 'S' + Math.floor(Math.random()*1000000),
+    name,
+    class: studentClass,
+    email,
+    password,
+    phone: '',
+    address: ''
+  };
+
+  master.students = master.students || [];
+  master.students.push(newStudent);
+
+  master.payments = master.payments || [];
+  const months = nextNMonthsISO(3);
+  const feeForClass = getFeeForClass(master, studentClass);
+
+  months.forEach(month => {
+    master.payments.push({
+      studentId: newStudent.id,
+      month,
+      status: "unpaid",
+      amount: 0,
+      totalFee: feeForClass
+    });
+  });
+
+  saveMaster(master);
+
+  alert('Registration successful! Please login.');
+  window.location.href = 'login.html';
+});
+</script>
+</body>
+</html>

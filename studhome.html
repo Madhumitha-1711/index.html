@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Student Portal</title>
+<script src="storage-sync.js"></script>
+<style>
+body {
+  margin:0;
+  font-family:'Segoe UI', sans-serif;
+  background: #f5f6fa; /* light background for body */
+}
+header {
+  background: #4e3db7; /* dark purple header */
+  color:white;
+  padding:20px 0;
+  text-align:center;
+  box-shadow:0 4px 12px rgba(0,0,0,0.1);
+  position: relative;
+}
+header h1 { margin:0; font-size:28px; font-weight:600; letter-spacing:1px; }
+nav { margin:15px 0; text-align:center; }
+nav button { margin:0 8px; padding:10px 22px; border:none; border-radius:12px; background:#5a4fcf; color:white; font-weight:600; cursor:pointer; transition:0.3s; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+nav button:hover { background:#3b3aa5; transform: translateY(-2px); }
+.container { max-width:1200px; margin:30px auto; padding:30px; background:white; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.05); }
+.module { display:none; }
+.module.active { display:block; }
+.dashboard-cards { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; margin-bottom:25px; }
+.card { flex:1; min-width:180px; background: linear-gradient(135deg, #6b5dd3, #4e73df); padding:25px; font-size:18px; color:#ffffff; border-radius:16px; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,0.08); transition: transform 0.3s, box-shadow 0.3s; }
+.card:hover { transform: translateY(-5px); box-shadow:0 10px 25px rgba(0,0,0,0.12); }
+.student-info { background:#fff3cd; padding:25px; border-radius:16px; margin-bottom:20px; box-shadow:0 6px 20px rgba(0,0,0,0.08); font-size:16px; }
+table { width:100%; border-collapse: separate; border-spacing:0; margin-top:15px; border-radius:12px; overflow:hidden; box-shadow:0 6px 15px rgba(0,0,0,0.05); }
+th, td { padding:12px 15px; text-align:center; font-size:15px; }
+th { background:#5a4fcf; color:#ffffff; font-weight:600; }
+tr:nth-child(even) { background:#f9f9f9; }
+.status { padding:5px 12px; border-radius:12px; font-weight:bold; color:white; font-size:14px; }
+.paid { background:#00b894; }
+.unpaid { background:#d63031; }
+.pay-btn { padding:6px 12px; border:none; border-radius:12px; cursor:pointer; background:#5a4fcf; color:white; font-weight:bold; transition:0.3s; }
+.pay-btn:hover { background:#3b3aa5; transform: translateY(-2px); }
+.logout-btn { position: absolute; top: 20px; right: 20px; padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+.logout-btn:hover { background: #c0392b; }
+@media(max-width:768px){
+  .dashboard-cards{ flex-direction:column; gap:15px; }
+  nav button{ width:100%; margin:5px 0; }
+  .container{ padding:20px; }
+  .student-info{ padding:20px; }
+}
+</style>
+</head>
+<body>
+<header style="position: relative;">
+  <button class="logout-btn" onclick="logout()">Logout</button>
+  <h1>Tuition Fee Tracker</h1>
+  <nav>
+    <button onclick="showModule('info')">Student Info</button>
+    <button onclick="showModule('fees')">Fee Overview</button>
+    <button onclick="showModule('payments')">Payment</button>
+  </nav>
+</header>
+
+<div class="container">
+  <!-- Student Info -->
+  <section id="info" class="module active">
+    <h2>Student Information</h2>
+    <div class="student-info" id="studentInfo"></div>
+  </section>
+
+  <!-- Fees Overview -->
+  <section id="fees" class="module">
+    <h2>Fees Overview</h2>
+    <div class="dashboard-cards">
+      <div class="card">Total Fees<br><span id="totalFees">₹0</span></div>
+      <div class="card">Paid<br><span id="paidFees">₹0</span></div>
+      <div class="card">Pending<br><span id="pendingFees">₹0</span></div>
+    </div>
+  </section>
+
+  <!-- Payment -->
+  <section id="payments" class="module">
+    <h2>Payment Details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Total Fee</th>
+          <th>Paid</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="feeTable"></tbody>
+    </table>
+  </section>
+
+</div>
+
+<script>
+function safeParse(raw){ try { return raw ? JSON.parse(raw) : null; } catch(e){ return null; } }
+
+// Helper: read canonical master if available
+function readMasterSafe(){
+  if(window.TFT && typeof window.TFT.getMaster === 'function'){
+    return window.TFT.getMaster();
+  }
+  return safeParse(localStorage.getItem('paymentsJSON')) || {};
+}
+
+function setupStudentHome(){
+  const currentUser = safeParse(localStorage.getItem('currentUser'));
+  if(!currentUser){
+    alert("Please login first!");
+    window.location.href="login.html";
+    return;
+  }
+
+  // Ensure payments exist for this user (legacy)
+  let payments = safeParse(localStorage.getItem('payments') || '[]');
+  if(!payments.some(p => p.studentId === currentUser.id)){
+    const months = ["2025-06","2025-07","2025-08","2025-09","2025-10"];
+    months.forEach(m => {
+      payments.push({studentId:currentUser.id, month:m, totalFee:3000, paid:0, dueDate:m+"-29", status:"unpaid", amount:0});
+    });
+    localStorage.setItem('payments', JSON.stringify(payments));
+    // encourage sync if TFT present
+    if(window.TFT && typeof window.TFT.saveJSON === 'function') window.TFT.saveJSON();
+  }
+
+  window.logout = function(){
+    localStorage.removeItem('currentUser');
+    window.location.href = "login.html";
+  }
+
+  window.showModule = function(id){
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function getFeeForClass(cls, feeStructure) {
+    if(!Array.isArray(feeStructure)) return 3000; // default if no feeStructure found
+    const f = feeStructure.find(x => String(x.class).trim().toLowerCase() === String(cls).trim().toLowerCase());
+    return f ? Number(f.amount) || 3000 : 3000;
+  }
+
+  function renderStudentInfo(){
+    const currentUser = safeParse(localStorage.getItem('currentUser'));
+    document.getElementById('studentInfo').innerHTML = `
+      <p><b>Name:</b> ${currentUser.name}</p>
+      <p><b>Class:</b> ${currentUser.class}</p>
+      <p><b>Student ID:</b> ${currentUser.id}</p>
+      <p><b>Email:</b> ${currentUser.email}</p>
+      <p><b>Joined:</b> ${new Date().toLocaleString('default', {month:'long', year:'numeric'})}</p>
+    `;
+  }
+
+  // Render overview totals using canonical paid amounts when available
+  function renderFeesOverview(){
+    const currentUser = safeParse(localStorage.getItem('currentUser'));
+    const legacyPayments = safeParse(localStorage.getItem('payments') || '[]');
+    const master = readMasterSafe();
+    const feeStructure = master.feeStructure || [];
+    const masterPayments = Array.isArray(master.payments) ? master.payments : [];
+
+    // Build list of payments for this student merging master -> legacy fallback
+    const studentPaymentMonths = new Set();
+    legacyPayments.filter(p=>p.studentId===currentUser.id).forEach(p=>studentPaymentMonths.add(p.month));
+    masterPayments.filter(p=>p.studentId===currentUser.id).forEach(p=>studentPaymentMonths.add(p.month));
+
+    let total = 0, paid = 0;
+    studentPaymentMonths.forEach(month=>{
+      // Prefer master record if exists
+      const mRec = masterPayments.find(mp => mp.studentId === currentUser.id && mp.month === month);
+      const lRec = legacyPayments.find(lp => lp.studentId === currentUser.id && lp.month === month);
+      const feeForClass = getFeeForClass(currentUser.class, feeStructure);
+      total += feeForClass;
+      const paidAmount = mRec ? (mRec.amount || mRec.paid || 0) : (lRec ? (lRec.amount || lRec.paid || 0) : 0);
+      paid += paidAmount;
+    });
+
+    const pending = Math.max(0, total - paid);
+    document.getElementById('totalFees').textContent = "₹"+total;
+    document.getElementById('paidFees').textContent = "₹"+paid;
+    document.getElementById('pendingFees').textContent = "₹"+pending;
+  }
+
+  // Render payments table using canonical master when available.
+  function renderPayments(){
+    const currentUser = safeParse(localStorage.getItem('currentUser'));
+    const legacyPayments = safeParse(localStorage.getItem('payments') || '[]');
+    const master = readMasterSafe();
+    const feeStructure = master.feeStructure || [];
+    const masterPayments = Array.isArray(master.payments) ? master.payments : [];
+    const proofs = master.proofs || [];
+
+    // collect months from both master and legacy so we don't miss anything
+    const monthsSet = new Set();
+    legacyPayments.filter(p=>p.studentId===currentUser.id).forEach(p=>monthsSet.add(p.month));
+    masterPayments.filter(p=>p.studentId===currentUser.id).forEach(p=>monthsSet.add(p.month));
+    const months = Array.from(monthsSet).sort();
+
+    const tbody = document.getElementById('feeTable');
+    tbody.innerHTML = "";
+
+    months.forEach(month => {
+      const mRec = masterPayments.find(mp => mp.studentId === currentUser.id && mp.month === month);
+      const lRec = legacyPayments.find(lp => lp.studentId === currentUser.id && lp.month === month);
+
+      // Source of truth: master if available, otherwise legacy
+      const source = mRec || lRec || { studentId: currentUser.id, month, amount:0, paid:0, status:'unpaid', dueDate:'' };
+
+      // Determine paidAmount and status — prefer master values
+      let paidAmount = Number(source.amount || source.paid || 0);
+      let paymentStatus = source.status || 'unpaid';
+
+      // If proofs exist in master, honor proof.status if it indicates rejection/approval
+      const proof = Array.isArray(proofs) ? proofs.find(pr => pr.studentId === currentUser.id && pr.month === month) : null;
+      if(proof && proof.status && proof.status.toLowerCase() === 'rejected'){
+        paidAmount = 0;
+        paymentStatus = 'unpaid';
+      } else if(proof && proof.status && proof.status.toLowerCase() === 'approved'){
+        paymentStatus = 'paid';
+      }
+
+      const feeForClass = getFeeForClass(currentUser.class, feeStructure);
+      const isPaid = (paidAmount >= feeForClass) || (String(paymentStatus).toLowerCase() === 'paid');
+      const statusClass = isPaid ? 'paid' : 'unpaid';
+      const statusText = isPaid ? 'Paid' : 'Unpaid';
+      const dueDate = source.dueDate || '';
+
+      // Action button: only when NOT paid
+      const actionBtn = isPaid ? '-' : `<button class="pay-btn" onclick="payNow('${month}')">Pay Now</button>`;
+
+      // optional small proof indicator (read-only)
+      const proofIndicator = proof ? ` <div style="font-size:12px;margin-top:6px;">Proof: ${proof.status || 'pending'}</div>` : '';
+
+      tbody.innerHTML += `
+      <tr>
+        <td>${month}${proofIndicator}</td>
+        <td>₹${feeForClass}</td>
+        <td>₹${paidAmount}</td>
+        <td>${dueDate}</td>
+        <td><span class="status ${statusClass}">${statusText}</span></td>
+        <td>${actionBtn}</td>
+      </tr>
+      `;
+    });
+
+    // If there were no months found, show fallback rows from legacy payments (shouldn't usually happen)
+    if(months.length === 0){
+      const fallback = legacyPayments.filter(p => p.studentId === currentUser.id);
+      if(fallback.length === 0){
+        tbody.innerHTML = '<tr><td colspan="6"><i>No payment records</i></td></tr>';
+      }
+    }
+  }
+
+  // When student clicks pay, we still set currentPayment and send them to paynow.html
+  window.payNow = function(month){
+    const legacyPayments = safeParse(localStorage.getItem('payments') || '[]');
+    const master = readMasterSafe();
+    const masterPayments = Array.isArray(master.payments) ? master.payments : [];
+    const currentUser = safeParse(localStorage.getItem('currentUser'));
+
+    // prefer master record if present
+    const rec = masterPayments.find(p => p.studentId === currentUser.id && p.month === month) ||
+                legacyPayments.find(p => p.studentId === currentUser.id && p.month === month);
+    const feeStructure = master.feeStructure || [];
+    const feeForClass = getFeeForClass(currentUser.class, feeStructure);
+
+    const paidAmount = rec ? Number(rec.amount || rec.paid || 0) : 0;
+
+    localStorage.setItem('currentPayment', JSON.stringify({
+      studentId: currentUser.id,
+      name: currentUser.name,
+      class: currentUser.class,
+      amountDue: Math.max(0, feeForClass - paidAmount),
+      month: month,
+      totalFee: feeForClass,
+      paid: paidAmount,
+      dueDate: rec ? (rec.dueDate || '') : ''
+    }));
+    // adjust this path if your paynow.html is named differently
+    window.location.href = "paynow.html";
+  }
+
+  // initial render
+  renderStudentInfo();
+  renderFeesOverview();
+  renderPayments();
+
+  // Re-render when storage changes (payments, master, currentPayment)
+  window.addEventListener('storage', (e)=> {
+    if(!e.key) return;
+    if(['payments','paymentsJSON','currentPayment','lastPaymentUpdate','proofs'].includes(e.key)){
+      renderFeesOverview(); renderPayments();
+    }
+  });
+
+  // If TFT emits a structured master update event, listen and refresh
+  window.addEventListener('tft-master-updated', function(e){
+    renderFeesOverview(); renderPayments();
+  });
+}
+
+// Defensive setup: run after storage-sync ready
+try { setupStudentHome(); } catch(e) {}
+
+// Wait for storage-sync event if not ready
+if(!(window.TFT && window.TFT.ready)){
+  window.addEventListener('tft-ready', function(){
+    try { setupStudentHome(); } catch(e){}
+  }, {once:true});
+}
+</script>
+
+</body>
+</html>

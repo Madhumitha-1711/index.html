@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment Success</title>
+<style>
+/* ===== Body and Layout ===== */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f6fa; /* light neutral background to match dashboard/login */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  margin: 0;
+}
+/* ===== Card Container ===== */
+.card {
+  background: white;
+  padding: 35px 30px;
+  border-radius: 20px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.15); /* softer shadow for consistency */
+  max-width: 450px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  animation: fadeIn 0.5s ease-out;
+}
+/* ===== Heading ===== */
+.card h2 {
+  color: #4e3db7; /* dark purple for consistency with dashboard/login */
+  font-size: 28px;
+  margin-bottom: 20px;
+  position: relative;
+}
+/* ===== Receipt Details ===== */
+.details p {
+  margin: 8px 0;
+  font-size: 16px;
+  color: #333;
+  text-align: left;
+}
+/* ===== Back Button ===== */
+.back-btn {
+  margin-top: 20px;
+  display: inline-block;
+  text-decoration: none;
+  color: white;
+  background: linear-gradient(45deg, #6b5dd3, #4e73df); /* purple-blue gradient matching theme */
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: bold;
+  transition: background 0.3s, transform 0.2s;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.back-btn:hover {
+  background: linear-gradient(45deg, #4e73df, #6b5dd3);
+  transform: translateY(-3px);
+}
+/* ===== Fade In Animation ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+/* ===== Confetti Styles ===== */
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #6b5dd3; /* purple for consistency */
+  opacity: 0.8;
+  border-radius: 50%;
+  animation: fall 3s linear infinite;
+}
+@keyframes fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+</style>
+</head>
+<body>
+<!-- Confetti -->
+<script>
+function createConfetti(){
+  for(let i=0;i<50;i++){
+    const confetti = document.createElement('div');
+    confetti.className='confetti';
+    confetti.style.left=Math.random()*100+'vw';
+    confetti.style.backgroundColor='hsl('+Math.random()*360+',100%,70%)';
+    confetti.style.animationDuration=(2+Math.random()*3)+'s';
+    confetti.style.width=confetti.style.height=(5+Math.random()*10)+'px';
+    document.body.appendChild(confetti);
+    setTimeout(()=>{confetti.remove()},4000);
+  }
+}
+createConfetti();
+</script>
+
+<div class="card">
+<h2>🎉 Payment Successful! 🎉</h2>
+<div class="details" id="receiptDetails"></div>
+<a href="studhome.html" class="back-btn">Back to Dashboard</a>
+</div>
+
+<script>
+const receipt = JSON.parse(localStorage.getItem('lastPaymentReceipt'));
+const div = document.getElementById('receiptDetails');
+
+if(!receipt){
+  div.innerHTML = "<p>No receipt found.</p>";
+}else{
+  div.innerHTML = `
+    <p><strong>Transaction ID:</strong> ${receipt.txnId}</p>
+    <p><strong>Name:</strong> ${receipt.name}</p>
+    <p><strong>Class:</strong> ${receipt.class}</p>
+    <p><strong>Month:</strong> ${receipt.month}</p>
+    <p><strong>Amount Paid:</strong> ₹${receipt.amountPaid}</p>
+    <p><strong>Total Fee:</strong> ₹${receipt.totalFee}</p>
+    <p><strong>Payment Mode:</strong> ${receipt.mode}</p>
+    <p><strong>Paid On:</strong> ${new Date(receipt.timestamp).toLocaleString()}</p>
+  `;
+}
+</script>
+
+</body>
+</html>

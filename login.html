@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tuition Fee Tracker - Login</title>
+<script src="storage-sync.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+/* ===== Body ===== */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f5f6fa;
+}
+/* ===== Form Box ===== */
+.form-box {
+    background: rgba(255,255,255,0.95);
+    padding: 40px;
+    border-radius: 15px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+.form-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+}
+/* ===== Heading ===== */
+.form-box h2 {
+    margin-bottom: 25px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #4e3db7;
+}
+/* ===== Input Fields ===== */
+.form-box input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    background: #eee;
+    box-sizing: border-box;
+}
+/* ===== Password Wrapper ===== */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+}
+.password-wrapper input {
+    width: 100%;
+    padding-right: 40px; /* space for eye icon */
+}
+.password-wrapper .toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #555;
+    font-size: 12px;
+}
+.password-wrapper .toggle-password:hover {
+    color: #4e73df;
+}
+/* ===== Submit Button ===== */
+.form-box button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+    border: none;
+    background: linear-gradient(45deg, #6b5dd3, #4e73df);
+    color: white;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.form-box button:hover {
+    background: linear-gradient(45deg, #4e73df, #6b5dd3);
+    transform: translateY(-2px);
+}
+/* ===== Error Message ===== */
+.error {
+    color: red;
+    font-size: 14px;
+    margin-top: 10px;
+}
+/* ===== Admin Section ===== */
+.admin-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+.admin-link {
+    display: inline-block;
+    padding: 10px 20px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+.admin-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+/* ===== Links ===== */
+.links {
+    margin-top: 15px;
+}
+.links a {
+    color: #5a4fcf;
+    font-weight: bold;
+    text-decoration: none;
+}
+.links a:hover {
+    text-decoration: underline;
+}
+</style>
+</head>
+<body>
+<div class="form-box">
+  <h2>Student Login</h2>
+  <form id="login-form">
+    <input type="email" id="email" placeholder="Email address" required>
+
+    <!-- Password Field with Eye Toggle -->
+    <div class="password-wrapper">
+      <input type="password" id="password" placeholder="Password" required minlength="6" />
+      <i class="fa-solid fa-eye toggle-password" onclick="togglePassword('password', this)"></i>
+    </div>
+
+    <button type="submit">Login</button>
+    <div class="error" id="error-msg"></div>
+  </form>
+  
+  <div class="links">
+    <p>Don't have an account? <a href="register.html">Sign Up</a></p>
+  </div>
+  
+  <div class="admin-section">
+    <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+      🔐 Administrator Access
+    </p>
+    <a href="admin-login.html" class="admin-link">Admin Login</a>
+  </div>
+</div>
+
+<script>
+// === Toggle Password Function ===
+function togglePassword(inputId, icon) {
+  const input = document.getElementById(inputId);
+  if (input.type === "password") {
+    input.type = "text";
+    icon.classList.remove("fa-eye");
+    icon.classList.add("fa-eye-slash");
+  } else {
+    input.type = "password";
+    icon.classList.remove("fa-eye-slash");
+    icon.classList.add("fa-eye");
+  }
+}
+
+// === Safe JSON Parse ===
+function safeParse(raw){
+  try { return raw ? JSON.parse(raw) : null; } catch(e){ return null; }
+}
+
+// === Get Students ===
+function getStudents(){
+  let students = safeParse(localStorage.getItem('students')) || [];
+  if(!Array.isArray(students)) students = [];
+  if(students.length === 0){
+    const master = safeParse(localStorage.getItem('paymentsJSON')) || {};
+    if(Array.isArray(master.students) && master.students.length) students = master.students;
+  }
+  if(!Array.isArray(students) && typeof students === 'string'){
+    try { students = JSON.parse(students); } catch(e){ students = []; }
+  }
+  return Array.isArray(students) ? students : [];
+}
+
+const loginForm = document.getElementById('login-form');
+const errorMsg = document.getElementById('error-msg');
+
+loginForm.addEventListener('submit', function(e){
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value.trim();
+
+  errorMsg.textContent = '';
+
+  if (!email || !password) {
+    errorMsg.textContent = "Please enter both email and password!";
+    return;
+  }
+
+  try {
+    if (window.TFT && typeof window.TFT.loadFromJSON === 'function') {
+      window.TFT.loadFromJSON();
+    }
+  } catch(err){
+    console.warn('TFT.loadFromJSON error', err);
+  }
+
+  const students = getStudents();
+  console.log('Loaded students for login:', students);
+
+  const user = students.find(s => {
+    if(!s) return false;
+    const sEmail = (s.email || s.emailAddress || s.userEmail || '').toString().trim().toLowerCase();
+    const sPassword = (s.password || s.pass || s.pwd || '').toString();
+    return sEmail === email && sPassword === password;
+  });
+
+  if(user){
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    alert("Login successful!");
+    window.location.href = "studhome.html";
+  } else {
+    errorMsg.textContent = "Invalid email or password!";
+  }
+});
+
+// focus email on load
+document.getElementById('email').focus();
+</script>
+</body>
+</html>

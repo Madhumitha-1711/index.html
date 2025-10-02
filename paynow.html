@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scan and Pay</title>
+<script src="storage-sync.js"></script>
+<style>
+  /* ===== Body ===== */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  height: 100vh;
+  background: #f5f6fa; /* light neutral background consistent with dashboard */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+/* ===== Card ===== */
+.card {
+  background: white;
+  padding: 35px 25px 50px 25px;
+  border-radius: 18px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.card:hover { 
+  transform: translateY(-3px); 
+  box-shadow: 0 25px 50px rgba(0,0,0,0.18); 
+}
+/* ===== Back Button ===== */
+.back-btn {
+  position: absolute;
+  left: 15px;
+  top: 15px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(45deg,#6b5dd3,#4e73df);
+  border-radius: 50%;
+  font-weight: bold;
+  text-decoration: none;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  transition: all 0.3s;
+}
+.back-btn:hover { 
+  background: linear-gradient(45deg,#4e73df,#6b5dd3); 
+  transform: translateY(-2px); 
+}
+/* ===== Heading ===== */
+.card h2 { 
+  font-size: 24px; 
+  margin-bottom: 18px; 
+  color: #4e3db7; /* consistent dark purple heading */ 
+  font-weight: 600; 
+}
+/* ===== Student Details ===== */
+.details {
+  text-align: left;
+  padding: 15px;
+  background: #f8faff;
+  border-radius: 12px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+  margin-bottom: 18px;
+  font-size: 15px;
+}
+.details p { margin: 6px 0; }
+/* ===== QR Code ===== */
+.qr { margin: 18px 0; }
+.qr img {
+  width: 160px;
+  height: 160px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  transition: 0.3s;
+}
+.qr img:hover { transform: scale(1.05); }
+.qr .upi-id {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #4e3db7; /* same dark purple as heading for consistency */
+  font-weight: 500;
+  text-align: center;
+  word-break: break-word; /* ensures long UPI IDs wrap if needed */
+}
+/* ===== Upload Area ===== */
+.upload-area {
+  margin: 16px auto 8px;
+  max-width: 200px;
+  height: 120px;
+  border: 2.5px dashed #6b5dd3;
+  border-radius: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  color: #6b5dd3;
+  font-size: 14px;
+  user-select: none;
+  box-shadow: 0 4px 15px rgba(107, 93, 211, 0.15);
+  transition: background 0.3s ease, border-color 0.3s ease;
+  position: relative;
+}
+.upload-area:hover, .upload-area.dragover {
+  background: linear-gradient(135deg, #6b5dd3, #4e73df);
+  color: #fff;
+  border-color: #4e73df;
+}
+.upload-area input[type="file"] { display: none; }
+.upload-icon { font-size: 48px; margin-bottom: 10px; pointer-events: none; }
+/* ===== File Preview ===== */
+.file-preview {
+  margin: 0 auto 4px auto;
+  max-width: 100px;
+  max-height: 50px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.file-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.file-name {
+  font-size: 11px;
+  color: #444;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+  margin: 0 auto 10px auto;
+}
+/* ===== Pay Now Button ===== */
+.pay-now-btn {
+  padding: 12px 22px;
+  background: linear-gradient(45deg,#6b5dd3,#4e73df);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.pay-now-btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+.pay-now-btn:hover:not([disabled]) { 
+  background: linear-gradient(45deg,#4e73df,#6b5dd3); 
+  transform: translateY(-2px); 
+  box-shadow: 0 10px 20px rgba(0,0,0,0.25); 
+}
+/* ===== Footer Instructions ===== */
+.footer-instructions { 
+  font-size: 13px; 
+  color: #555; 
+  margin-top: 20px; 
+  text-align: center; 
+}
+/* ===== Responsive ===== */
+@media(max-width:500px){
+  .card { padding:25px 18px 40px 18px; }
+  .qr img { width:140px; height:140px; }
+  .file-preview { max-width:100%; height:50px; }
+  .upload-area { max-width: 100%; }
+  .file-name { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <a href="studhome.html" class="back-btn">&#8592;</a>
+  <h2>Scan & Pay</h2>
+
+  <div class="details" id="studentDetails"></div>
+
+ <div class="qr">
+  <img src="qrcode.jpg" alt="QR Code"
+       onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><rect width=%22160%22 height=%22160%22 fill=%22%23f0f4f8%22/><text x=%2280%22 y=%2280%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%236b7280%22>QR Code</text></svg>'">
+  <p class="upi-id">UPI ID: 8553655575-2@ybl</p>
+</div>
+
+  <label class="upload-area" id="uploadArea">
+    📤 Click or Drag & Drop proof
+    <input id="proofFile" type="file" accept="image/*,application/pdf" />
+    <div class="file-preview" id="filePreview"><span style="color:#999;">No preview</span></div>
+    <div class="file-name" id="fileName">No file selected</div>
+  </label>
+
+  <button class="pay-now-btn" id="markPaidBtn" onclick="markPaid()" disabled>Mark as Paid</button>
+
+  <div class="footer-instructions">
+    Open your UPI app and scan the QR. Upload payment proof to enable "Mark as Paid".
+  </div>
+</div>
+
+<script>
+const MASTER_KEY='paymentsJSON';
+const currentPayment=JSON.parse(localStorage.getItem('currentPayment')||'null');
+
+if(!currentPayment){ alert("No payment selected!"); window.location.href="studhome.html"; }
+
+const detailsDiv=document.getElementById('studentDetails');
+detailsDiv.innerHTML=`
+  <p><strong>Name:</strong> ${escapeHtml(currentPayment.name)}</p>
+  <p><strong>Class:</strong> ${escapeHtml(currentPayment.class)}</p>
+  <p><strong>Month:</strong> ${escapeHtml(currentPayment.month)}</p>
+  <p><strong>Amount Due:</strong> ₹ ${Number(currentPayment.amountDue||currentPayment.totalFee||0)}</p>
+  <p><strong>Due Date:</strong> ${escapeHtml(currentPayment.dueDate||'N/A')}</p>
+`;
+
+const fileInput=document.getElementById('proofFile');
+const uploadArea=document.getElementById('uploadArea');
+const filePreviewEl=document.getElementById('filePreview');
+const fileNameEl=document.getElementById('fileName');
+const markPaidBtn=document.getElementById('markPaidBtn');
+let uploadedDataUrl=null, uploadedFileName=null;
+
+// click to select
+uploadArea.addEventListener('click',()=>fileInput.click());
+
+// drag & drop
+uploadArea.addEventListener('dragover',(e)=>{ e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave',()=>uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop',(e)=>{
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  if(e.dataTransfer.files[0]) fileInput.files=e.dataTransfer.files;
+  fileInput.dispatchEvent(new Event('change'));
+});
+
+// file change
+fileInput.addEventListener('change',(ev)=>{
+  const file=ev.target.files&&ev.target.files[0];
+  if(!file){ 
+    uploadedDataUrl=null; 
+    uploadedFileName=null; 
+    fileNameEl.textContent='No file selected'; 
+    filePreviewEl.innerHTML='<span style="color:#999;">No preview</span>'; 
+    markPaidBtn.disabled=true; 
+    return; 
+  }
+  if(file.size>8*1024*1024){ alert('File too large (max 8MB).'); fileInput.value=''; return; }
+
+  uploadedFileName=file.name;
+  fileNameEl.textContent=uploadedFileName;
+
+  const reader=new FileReader();
+  reader.onload=function(e){
+    uploadedDataUrl=e.target.result;
+    if(file.type.startsWith('image/')){
+      filePreviewEl.innerHTML=`<img src="${uploadedDataUrl}" alt="Preview">`;
+    } else {
+      filePreviewEl.innerHTML=`<div style="font-size:12px;">📄 ${uploadedFileName}</div>`;
+    }
+    markPaidBtn.disabled=false;
+  };
+  reader.readAsDataURL(file);
+});
+
+function loadMaster(){ 
+  try{ 
+    return JSON.parse(localStorage.getItem(MASTER_KEY))||{students:[],payments:[],proofs:[],feeStructure:[]}; 
+  } catch(e){ 
+    return {students:[],payments:[],proofs:[],feeStructure:[]}; 
+  } 
+}
+
+function saveMaster(master){ 
+  localStorage.setItem(MASTER_KEY,JSON.stringify(master,null,2)); 
+  localStorage.setItem('students',JSON.stringify(master.students||[],null,2)); 
+  localStorage.setItem('payments',JSON.stringify(master.payments||[],null,2)); 
+  if(window.TFT&&typeof window.TFT.saveJSON==='function'){ 
+    try{ window.TFT.saveJSON(); }catch(e){} 
+  } 
+}
+
+function markPaid(){
+  if(!uploadedDataUrl){ alert('Upload payment proof first.'); return; }
+  const master=loadMaster();
+  master.payments=master.payments||[];
+  const pIndex=master.payments.findIndex(p=>p.studentId===currentPayment.studentId&&p.month===currentPayment.month);
+  if(pIndex===-1){ alert('Payment record not found. Contact admin.'); return; }
+  const payment=master.payments[pIndex];
+  const totalFee=Number(payment.totalFee||currentPayment.totalFee||currentPayment.amountDue||0);
+  payment.amount=totalFee; payment.paid=totalFee; payment.status='paid';
+  master.proofs=master.proofs||[];
+  master.proofs.push({studentId:currentPayment.studentId,url:uploadedDataUrl,date:new Date().toISOString(),status:'Pending'});
+  saveMaster(master);
+
+  const receipt={
+    txnId:'TXN'+Math.random().toString(36).slice(2,10).toUpperCase(),
+    studentId:currentPayment.studentId,
+    name:currentPayment.name,
+    class:currentPayment.class,
+    month:currentPayment.month,
+    amountPaid:totalFee,
+    totalFee:totalFee,
+    dueDate:currentPayment.dueDate||null,
+    mode:'UPI / QR (with proof)',
+    timestamp:new Date().toISOString()
+  };
+  localStorage.setItem('lastPaymentReceipt',JSON.stringify(receipt));
+  window.location.href='success.html';
+}
+function escapeHtml(str){ 
+  if(str===null||str===undefined) return ''; 
+  return String(str).replace(/[&<>"'`=\/]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'}[s])); 
+}
+</script>
+</body>
+</html>

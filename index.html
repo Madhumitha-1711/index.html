@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuition Fee Tracker</title>
+    <script src="storage-sync.js"></script>
+    <style>
+       /* ===== Body ===== */
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f5f6fa; /* light neutral background */
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+}
+/* ===== Welcome Card ===== */
+.welcome-card {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+    max-width: 400px;
+    width: 100%;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+.welcome-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+/* ===== Heading & Paragraph ===== */
+.welcome-card h1 {
+    color: #4e3db7; /* dark purple heading */
+    margin-bottom: 20px;
+    font-size: 28px;
+}
+.welcome-card p {
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 16px;
+}
+/* ===== Buttons ===== */
+.btn {
+    display: inline-block;
+    padding: 12px 30px;
+    margin: 10px;
+    background: linear-gradient(45deg, #6b5dd3, #4e73df); /* purple-blue gradient */
+    color: white;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+.btn:hover {
+    background: linear-gradient(45deg, #4e73df, #6b5dd3);
+    transform: translateY(-2px);
+}
+.btn.secondary {
+    background: linear-gradient(45deg, #5a4fcf, #764ba2);
+}
+.btn.secondary:hover {
+    background: linear-gradient(45deg, #764ba2, #5a4fcf);
+}
+/* ===== Admin Section ===== */
+.admin-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+.admin-btn {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    font-size: 14px;
+    padding: 8px 20px;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.admin-btn:hover {
+    background: linear-gradient(45deg, #764ba2, #667eea);
+    transform: translateY(-2px);
+}
+    </style>
+</head>
+<body>
+    <div class="welcome-card">
+        <h1>🎓 Tuition Fee Tracker</h1>
+        <p>Manage tuition fees, track payments, and access your student portal</p>
+        <a href="register.html" class="btn">Sign Up</a>
+        <a href="login.html" class="btn secondary">Student Login</a>
+        
+        <div class="admin-section">
+            <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                🔐 Administrator Access
+            </p>
+            <a href="admin-login.html" class="btn admin-btn">Admin Login</a>
+        </div>
+    </div>
+</body>
+</html>
